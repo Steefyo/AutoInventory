@@ -17,7 +17,8 @@
                    class="plate-input" aria-describedby="err-plate" data-invalidates="#save">
         </label>
         <span asp-validation-for="Input.LicensePlate" id="err-plate" class="field-error"></span>
-        <button type="submit" asp-page-handler="Lookup" formnovalidate class="@(found ? "link-button" : "")">
+        <button type="submit" asp-page-handler="Lookup" formnovalidate class="@(found ? "link-button" : "")"
+                data-busy="Ophalen bij de RDW…">
             @(found ? "Opnieuw ophalen bij de RDW" : "Ophalen bij de RDW")
         </button>
 

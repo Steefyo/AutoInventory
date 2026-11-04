@@ -28,5 +28,35 @@
     });
   });
 
+  document.addEventListener("submit", e => {
+    if (e.defaultPrevented) return;
+    const form = e.target;
+    const submitter = e.submitter;
+    setTimeout(() => {
+      form.setAttribute("aria-busy", "true");
+      form.querySelectorAll("button").forEach(button => {
+        if (button.disabled) return;
+        button.disabled = true;
+        button.dataset.busyDisabled = "";
+        if (button === submitter) {
+          button.dataset.label = button.textContent;
+          button.textContent = button.dataset.busy || "Bezig…";
+        }
+      });
+    });
+  });
+
+  window.addEventListener("pageshow", e => {
+    if (!e.persisted) return;
+    document.querySelectorAll("form[aria-busy]").forEach(form => {
+      form.removeAttribute("aria-busy");
+      form.querySelectorAll("button[data-busy-disabled]").forEach(button => {
+        button.disabled = false;
+        delete button.dataset.busyDisabled;
+        if (button.dataset.label !== undefined) button.textContent = button.dataset.label;
+      });
+    });
+  });
+
   document.querySelector(".input-validation-error")?.focus();
 })();

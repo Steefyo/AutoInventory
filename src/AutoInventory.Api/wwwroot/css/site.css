@@ -26,6 +26,7 @@ main.two-col { display: grid; gap: 2rem; grid-template-columns: 1fr; }
 .button, button { display: inline-block; background: var(--accent); color: #fff; border: 0; border-radius: 8px;
   padding: .6rem 1rem; font: inherit; font-weight: 600; text-decoration: none; cursor: pointer; }
 button:disabled { opacity: .5; cursor: not-allowed; }
+form[aria-busy="true"], form[aria-busy="true"] button:disabled { cursor: progress; }
 button.secondary { background: transparent; color: var(--err); border: 1px solid var(--err); }
 :focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 50%, transparent); outline-offset: 2px; }
 
