@@ -1,10 +1,5 @@
 namespace AutoInventory.Core;
 
-/// <summary>
-/// Maximum field lengths, defined once. Used by the validation rules AND by the EF column sizes
-/// (AppDbContext), so the API can never accept something the database will then reject with a 500.
-/// The HTML maxlength attributes mirror these numbers for quick feedback only.
-/// </summary>
 public static class Limits
 {
     public const int Name = 100;

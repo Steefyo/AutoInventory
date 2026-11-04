@@ -11,8 +11,6 @@ var app = builder.Build();
 
 app.MapGet("/", () => "AutoInventory");
 
-// Off unless configured (appsettings.Development.json turns it on): in production, migrations belong
-// in the deployment pipeline, not in every app instance racing to migrate at startup.
 if (app.Configuration.GetValue("Database:MigrateOnStartup", false))
 {
     using var scope = app.Services.CreateScope();

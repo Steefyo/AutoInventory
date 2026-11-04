@@ -9,10 +9,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Vehicle> Vehicles => Set<Vehicle>();
     public DbSet<TestDrive> TestDrives => Set<TestDrive>();
 
-    /// <summary>
-    /// Every DateTime is stored as UTC. MySQL's datetime has no time zone, so EF reads values back with
-    /// Kind = Unspecified; this converter marks them UTC in one place instead of fixing it in every query.
-    /// </summary>
     protected override void ConfigureConventions(ModelConfigurationBuilder c) =>
         c.Properties<DateTime>().HaveConversion<UtcDateTimeConverter>();
 
@@ -24,22 +20,18 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     {
         b.Entity<Vehicle>(e =>
         {
-            // Column sizes come from Core.Limits, the same numbers the validation rules check.
             e.Property(v => v.LicensePlate).HasMaxLength(Limits.LicensePlate).IsRequired();
             e.HasIndex(v => v.LicensePlate).IsUnique();
             e.Property(v => v.Brand).HasMaxLength(Limits.Brand).IsRequired();
             e.Property(v => v.Model).HasMaxLength(Limits.Model).IsRequired();
             e.Property(v => v.Price).HasPrecision(10, 2);
-            // Enums as readable strings: survives reordering and is readable in the DB.
             e.Property(v => v.Fuel).HasConversion<string>().HasMaxLength(20);
             e.Property(v => v.Status).HasConversion<string>().HasMaxLength(20);
             e.HasIndex(v => v.Brand);
             e.Property(v => v.Branch).HasMaxLength(Limits.Branch).IsRequired();
-            // Optimistic concurrency: an UPDATE only succeeds while Version still has the value the client saw.
             e.Property(v => v.Version).IsConcurrencyToken();
             e.HasIndex(v => v.Branch);
 
-            // Fictional plates. Mostly Volkswagen Group (Ames' dealer brands), plus one trade-in of another brand.
             e.HasData(
                 Seed(1, "GV123X", "Volkswagen", "GOLF", 2020, 68_500, FuelType.Petrol, 19_950m, "Dordrecht"),
                 Seed(2, "KZ842P", "Audi", "A3 SPORTBACK", 2021, 42_100, FuelType.Petrol, 27_450m, "Ridderkerk"),
@@ -62,9 +54,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(t => t.Name).HasMaxLength(Limits.Name).IsRequired();
             e.Property(t => t.Email).HasMaxLength(Limits.Email).IsRequired();
             e.Property(t => t.Phone).HasMaxLength(Limits.Phone).IsRequired();
-            // Speeds up the double-booking check: "are there bookings for this car around this time?"
             e.HasIndex(t => new { t.VehicleId, t.ScheduledAt });
-            // Cascade is only reached for past test drives: the DELETE endpoint refuses while future ones exist.
             e.HasOne(t => t.Vehicle).WithMany(v => v.TestDrives)
                 .HasForeignKey(t => t.VehicleId).OnDelete(DeleteBehavior.Cascade);
         });
