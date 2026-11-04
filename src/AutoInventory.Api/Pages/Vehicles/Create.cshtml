@@ -1,0 +1,71 @@
+@page "/voertuig/toevoegen"
+@model AutoInventory.Api.Pages.Vehicles.CreateModel
+@{
+    ViewData["Title"] = "Voertuig toevoegen";
+    var found = Model.Rdw is not null;
+}
+
+<main class="narrow">
+    <h1>Voertuig toevoegen</h1>
+    <p class="hint">Vul het kenteken in; merk, model en bouwjaar halen we op bij de RDW.</p>
+
+    <form method="post" class="panel" novalidate>
+        <div asp-validation-summary="ModelOnly" class="status error" role="alert"></div>
+
+        <label>Kenteken
+            <input asp-for="Input.LicensePlate" required maxlength="10" autocomplete="off" placeholder="AB-123-C"
+                   class="plate-input" aria-describedby="err-plate" data-invalidates="#save">
+        </label>
+        <span asp-validation-for="Input.LicensePlate" id="err-plate" class="field-error"></span>
+        <button type="submit" asp-page-handler="Lookup" formnovalidate class="@(found ? "link-button" : "")">
+            @(found ? "Opnieuw ophalen bij de RDW" : "Ophalen bij de RDW")
+        </button>
+
+        @if (found)
+        {
+            var rdw = Model.Rdw!;
+            <p class="status success" role="status">Gevonden bij de RDW.</p>
+            <p class="preview"><strong>@rdw.Brand @rdw.Model</strong>@(rdw.Year is { } y ? $" · bouwjaar {y}" : "")</p>
+
+            <label>Kilometerstand
+                <input asp-for="Input.Mileage" type="number" min="0" max="@VehicleRules.MaxMileage" step="1" required
+                       aria-describedby="err-km">
+            </label>
+            <span asp-validation-for="Input.Mileage" id="err-km" class="field-error"></span>
+
+            <label>Brandstof
+                <select asp-for="Input.Fuel" required aria-describedby="fuel-hint err-fuel">
+                    <option value="">Kies een brandstof…</option>
+                    @foreach (var f in Enum.GetValues<FuelType>())
+                    {
+                        <option value="@f">@Format.Fuel(f)</option>
+                    }
+                </select>
+            </label>
+            @if (rdw.Fuel is not null)
+            {
+                <small id="fuel-hint" class="hint">Ingevuld volgens de RDW; pas aan indien nodig.</small>
+            }
+            <span asp-validation-for="Input.Fuel" id="err-fuel" class="field-error"></span>
+
+            <label>Vestiging
+                <select asp-for="Input.Branch" required aria-describedby="err-branch">
+                    <option value="">Kies een vestiging…</option>
+                    @foreach (var branch in Branches.All)
+                    {
+                        <option value="@branch">@branch</option>
+                    }
+                </select>
+            </label>
+            <span asp-validation-for="Input.Branch" id="err-branch" class="field-error"></span>
+
+            <label>Prijs (€)
+                <input asp-for="Input.Price" type="number" min="1" max="@VehicleRules.MaxPrice" step="1" required
+                       aria-describedby="err-price">
+            </label>
+            <span asp-validation-for="Input.Price" id="err-price" class="field-error"></span>
+
+            <button id="save" type="submit" asp-page-handler="Save">Opslaan</button>
+        }
+    </form>
+</main>
