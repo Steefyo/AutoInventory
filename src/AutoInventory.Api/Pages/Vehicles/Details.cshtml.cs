@@ -85,6 +85,20 @@ public class DetailsModel(VehicleService vehicles, TestDriveService testDrives) 
         return RedirectToPage(new { id = Id });
     }
 
+    public async Task<IActionResult> OnPostDeleteAsync(CancellationToken ct)
+    {
+        if (!await LoadVehicleAsync(ct)) return NotFound();
+        var result = await vehicles.DeleteAsync(Id, ct);
+        if (result.Kind == ResultKind.NotFound) return NotFound();
+        if (!result.IsOk)
+        {
+            AdminError = result.Message ?? "Verwijderen is niet gelukt.";
+            return RedirectToPage(new { id = Id });
+        }
+        TempData["Message"] = $"{Vehicle.Brand} {Vehicle.Model} is verwijderd uit de voorraad.";
+        return RedirectToPage("/Index");
+    }
+
     private async Task<bool> LoadVehicleAsync(CancellationToken ct)
     {
         var result = await vehicles.GetAsync(Id, ct);

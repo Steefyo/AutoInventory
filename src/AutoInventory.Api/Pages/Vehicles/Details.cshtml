@@ -83,19 +83,24 @@
         }
     </section>
 
-    @if (!sold)
-    {
-        <section class="panel admin" aria-labelledby="admin-heading">
-            <h2 id="admin-heading">Beheer</h2>
-            <p class="hint">Voor medewerkers. (Nog zonder inlog; zie README.)</p>
-            @if (Model.AdminError is not null)
-            {
-                <p class="status error" role="alert">@Model.AdminError</p>
-            }
+    <section class="panel admin" aria-labelledby="admin-heading">
+        <h2 id="admin-heading">Beheer</h2>
+        <p class="hint">Voor medewerkers. (Nog zonder inlog; zie README.)</p>
+        @if (Model.AdminError is not null)
+        {
+            <p class="status error" role="alert">@Model.AdminError</p>
+        }
+        <p><a class="button" asp-page="Edit" asp-route-id="@v.Id">Wijzigen</a></p>
+        @if (!sold)
+        {
             <form method="post" asp-page-handler="MarkSold" data-confirm="@v.Brand @v.Model als verkocht markeren?">
                 <input type="hidden" name="version" value="@v.Version">
                 <button type="submit" class="secondary">Markeer als verkocht</button>
             </form>
-        </section>
-    }
+        }
+        <form method="post" asp-page-handler="Delete"
+              data-confirm="@v.Brand @v.Model verwijderen uit de voorraad? Dit kan niet ongedaan worden gemaakt.">
+            <button type="submit" class="secondary">Verwijderen</button>
+        </form>
+    </section>
 </main>

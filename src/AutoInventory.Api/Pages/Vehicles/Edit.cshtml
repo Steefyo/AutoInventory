@@ -1,0 +1,70 @@
+@page "/voertuig/{id:int}/wijzigen"
+@model AutoInventory.Api.Pages.Vehicles.EditModel
+@{
+    var v = Model.Vehicle;
+    ViewData["Title"] = $"{v.Brand} {v.Model} wijzigen";
+}
+@section HeaderAction {
+    <a asp-page="Details" asp-route-id="@Model.Id">← Terug naar het voertuig</a>
+}
+
+<main class="narrow">
+    <h1>Voertuig wijzigen</h1>
+    <p class="preview"><span class="plate">@Format.Plate(v.LicensePlate)</span>
+        <strong>@v.Brand @v.Model</strong> · bouwjaar @Format.Year(v.Year)</p>
+    <p class="hint">Kenteken, merk, model en bouwjaar komen van de RDW en zijn niet te wijzigen.</p>
+
+    <form method="post" asp-page-handler="Save" class="panel" novalidate>
+        <div asp-validation-summary="ModelOnly" class="status error" role="alert"></div>
+        @if (Model.Stale)
+        {
+            <p class="hint">Je wijzigingen zijn niet opgeslagen.
+                <a asp-page="Edit" asp-route-id="@Model.Id">Actuele gegevens laden</a></p>
+        }
+        <input type="hidden" asp-for="Input.Version">
+
+        <label>Kilometerstand
+            <input asp-for="Input.Mileage" type="number" min="0" max="@VehicleRules.MaxMileage" step="1" required
+                   aria-describedby="err-km">
+        </label>
+        <span asp-validation-for="Input.Mileage" id="err-km" class="field-error"></span>
+
+        <label>Brandstof
+            <select asp-for="Input.Fuel" aria-describedby="err-fuel">
+                @foreach (var f in Enum.GetValues<FuelType>())
+                {
+                    <option value="@f">@Format.Fuel(f)</option>
+                }
+            </select>
+        </label>
+        <span asp-validation-for="Input.Fuel" id="err-fuel" class="field-error"></span>
+
+        <label>Vestiging
+            <select asp-for="Input.Branch" aria-describedby="err-branch">
+                @foreach (var branch in Branches.All)
+                {
+                    <option value="@branch">@branch</option>
+                }
+            </select>
+        </label>
+        <span asp-validation-for="Input.Branch" id="err-branch" class="field-error"></span>
+
+        <label>Prijs (€)
+            <input asp-for="Input.Price" type="number" min="1" max="@VehicleRules.MaxPrice" step="0.01" required
+                   aria-describedby="err-price">
+        </label>
+        <span asp-validation-for="Input.Price" id="err-price" class="field-error"></span>
+
+        <label>Status
+            <select asp-for="Input.Status" aria-describedby="err-status">
+                @foreach (var s in Enum.GetValues<VehicleStatus>())
+                {
+                    <option value="@s">@Format.Status(s)</option>
+                }
+            </select>
+        </label>
+        <span asp-validation-for="Input.Status" id="err-status" class="field-error"></span>
+
+        <button type="submit">Opslaan</button>
+    </form>
+</main>
