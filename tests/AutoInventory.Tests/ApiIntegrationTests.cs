@@ -135,21 +135,56 @@ public class ApiIntegrationTests(ApiFactory factory) : IAsyncLifetime
     {
         await _client.PostAsJsonAsync("/api/vehicles",
             new { licensePlate = "SK123X", mileage = 1, fuel = "Petrol", price = 1000, branch = "Dordrecht" });
-        Assert.Equal(8, (await Json(await _client.GetAsync("/api/vehicles"))).GetArrayLength());
+        Assert.Equal(8, (await Json(await _client.GetAsync("/api/vehicles"))).GetProperty("totalCount").GetInt32());
 
         await factory.ResetDatabaseAsync();
-        Assert.Equal(7, (await Json(await _client.GetAsync("/api/vehicles"))).GetArrayLength());
+        Assert.Equal(7, (await Json(await _client.GetAsync("/api/vehicles"))).GetProperty("totalCount").GetInt32());
     }
 
     [Fact]
     public async Task Vehicles_can_be_filtered_by_brand_and_branch()
     {
         var byBrand = await Json(await _client.GetAsync("/api/vehicles?brand=Škoda"));
-        Assert.Equal("OCTAVIA COMBI", Assert.Single(byBrand.EnumerateArray()).GetProperty("model").GetString());
+        Assert.Equal("OCTAVIA COMBI", Assert.Single(byBrand.GetProperty("items").EnumerateArray()).GetProperty("model").GetString());
 
-        var byBranch = (await Json(await _client.GetAsync("/api/vehicles?branch=Dordrecht"))).EnumerateArray().ToList();
+        var byBranch = (await Json(await _client.GetAsync("/api/vehicles?branch=Dordrecht"))).GetProperty("items").EnumerateArray().ToList();
         Assert.NotEmpty(byBranch);
         Assert.All(byBranch, v => Assert.Equal("Dordrecht", v.GetProperty("branch").GetString()));
+    }
+
+    [Fact]
+    public async Task Vehicle_list_is_paged_and_reports_the_total()
+    {
+        var page = await Json(await _client.GetAsync("/api/vehicles?sort=mileage&page=2&pageSize=3"));
+
+        Assert.Equal(["YARIS", "GOLF", "IBIZA"], page.GetProperty("items").EnumerateArray().Select(v => v.GetProperty("model").GetString()));
+        Assert.Equal(2, page.GetProperty("page").GetInt32());
+        Assert.Equal(3, page.GetProperty("pageSize").GetInt32());
+        Assert.Equal(7, page.GetProperty("totalCount").GetInt32());
+        Assert.Equal(3, page.GetProperty("totalPages").GetInt32());
+    }
+
+    [Fact]
+    public async Task Vehicle_list_can_be_sorted_by_price_descending()
+    {
+        var prices = (await Json(await _client.GetAsync("/api/vehicles?sort=price_desc"))).GetProperty("items")
+            .EnumerateArray().Select(v => v.GetProperty("price").GetDecimal()).ToList();
+
+        Assert.Equal(7, prices.Count);
+        Assert.Equal(32_500m, prices[0]);
+        Assert.Equal(prices.OrderDescending(), prices);
+    }
+
+    [Theory]
+    [InlineData("page=0", "page")]
+    [InlineData("pageSize=51", "pageSize")]
+    [InlineData("sort=cheapest", "sort")]
+    public async Task Invalid_paging_or_sort_is_a_validation_problem(string query, string field)
+    {
+        var r = await _client.GetAsync($"/api/vehicles?{query}");
+
+        Assert.Equal(HttpStatusCode.BadRequest, r.StatusCode);
+        Assert.True(HasFieldError(await Json(r), field));
     }
 
     [Fact]

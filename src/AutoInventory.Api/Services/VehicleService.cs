@@ -14,20 +14,62 @@ public record VehicleDto(int Id, string LicensePlate, string Brand, string Model
 
 public record VehicleFilter(string? Brand = null, string? Branch = null, FuelType? Fuel = null, VehicleStatus? Status = null);
 
+public static class VehicleSort
+{
+    public const string Brand = "brand";
+    public const string Price = "price";
+    public const string PriceDesc = "price_desc";
+    public const string Mileage = "mileage";
+    public const string YearDesc = "year_desc";
+
+    public static readonly IReadOnlyList<string> All = [Brand, Price, PriceDesc, Mileage, YearDesc];
+}
+
+public record PagedResult<T>(IReadOnlyList<T> Items, int Page, int PageSize, int TotalCount)
+{
+    public int TotalPages => (TotalCount + PageSize - 1) / PageSize;
+}
+
 public record BrandsDto(IReadOnlyList<string> DealerBrands, IReadOnlyList<string> Others);
 
 public class VehicleService(AppDbContext db, IRdwClient rdw, TimeProvider clock, ILogger<VehicleService> log)
 {
-    public async Task<List<VehicleDto>> SearchAsync(VehicleFilter f, CancellationToken ct = default)
+    public const int DefaultPageSize = 20;
+    public const int MaxPageSize = 50;
+
+    public async Task<ServiceResult<PagedResult<VehicleDto>>> SearchAsync(VehicleFilter f, string? sort, int page, int pageSize,
+        CancellationToken ct = default)
     {
+        sort = string.IsNullOrWhiteSpace(sort) ? VehicleSort.Brand : sort;
+        var errors = new Dictionary<string, string[]>();
+        if (!VehicleSort.All.Contains(sort))
+            errors["sort"] = [$"Onbekende sortering. Kies uit: {string.Join(", ", VehicleSort.All)}."];
+        if (page < 1)
+            errors["page"] = ["Pagina moet 1 of hoger zijn."];
+        if (pageSize is < 1 or > MaxPageSize)
+            errors["pageSize"] = [$"Aantal per pagina moet tussen 1 en {MaxPageSize} liggen."];
+        if (errors.Count > 0) return ServiceResult<PagedResult<VehicleDto>>.Invalid(errors);
+
         var q = db.Vehicles.AsNoTracking();
         if (!string.IsNullOrWhiteSpace(f.Brand)) q = q.Where(v => v.Brand == f.Brand.Trim());
         if (!string.IsNullOrWhiteSpace(f.Branch)) q = q.Where(v => v.Branch == f.Branch);
         if (f.Fuel is not null) q = q.Where(v => v.Fuel == f.Fuel);
         if (f.Status is not null) q = q.Where(v => v.Status == f.Status);
-        var list = await q.OrderBy(v => v.Brand).ThenBy(v => v.Model).ToListAsync(ct);
-        return list.Select(VehicleDto.From).ToList();
+
+        var total = await q.CountAsync(ct);
+        var skip = (long)(page - 1) * pageSize;
+        var list = skip >= total ? [] : await Sorted(q, sort).Skip((int)skip).Take(pageSize).ToListAsync(ct);
+        return ServiceResult<PagedResult<VehicleDto>>.Ok(new(list.Select(VehicleDto.From).ToList(), page, pageSize, total));
     }
+
+    private static IQueryable<Vehicle> Sorted(IQueryable<Vehicle> q, string sort) => sort switch
+    {
+        VehicleSort.Price => q.OrderBy(v => v.Price).ThenBy(v => v.Id),
+        VehicleSort.PriceDesc => q.OrderByDescending(v => v.Price).ThenBy(v => v.Id),
+        VehicleSort.Mileage => q.OrderBy(v => v.Mileage).ThenBy(v => v.Id),
+        VehicleSort.YearDesc => q.OrderByDescending(v => v.Year).ThenBy(v => v.Id),
+        _ => q.OrderBy(v => v.Brand).ThenBy(v => v.Model).ThenBy(v => v.Id),
+    };
 
     public async Task<ServiceResult<VehicleDto>> GetAsync(int id, CancellationToken ct = default) =>
         await db.Vehicles.AsNoTracking().FirstOrDefaultAsync(v => v.Id == id, ct) is { } v

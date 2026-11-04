@@ -25,9 +25,14 @@ public static class VehicleEndpoints
 
         var vehicles = api.MapGroup("/vehicles").WithTags("Voertuigen");
 
-        vehicles.MapGet("/", async (string? brand, string? branch, FuelType? fuel, VehicleStatus? status, VehicleService svc, CancellationToken ct) =>
-                Results.Ok(await svc.SearchAsync(new VehicleFilter(brand, branch, fuel, status), ct)))
-            .WithSummary("Voorraad opvragen, optioneel gefilterd").Produces<VehicleDto[]>();
+        vehicles.MapGet("/", async (string? brand, string? branch, FuelType? fuel, VehicleStatus? status, string? sort,
+                int? page, int? pageSize, VehicleService svc, CancellationToken ct) =>
+                (await svc.SearchAsync(new VehicleFilter(brand, branch, fuel, status), sort, page ?? 1,
+                    pageSize ?? VehicleService.DefaultPageSize, ct)).ToHttp(Results.Ok))
+            .WithSummary("Voorraad opvragen per pagina, optioneel gefilterd en gesorteerd")
+            .WithDescription($"sort: {string.Join(", ", VehicleSort.All)}; standaard {VehicleSort.Brand}. "
+                + $"pageSize: standaard {VehicleService.DefaultPageSize}, maximaal {VehicleService.MaxPageSize}.")
+            .Produces<PagedResult<VehicleDto>>().ProducesValidationProblem();
 
         vehicles.MapGet("/{id:int}", async (int id, VehicleService svc, CancellationToken ct) =>
                 (await svc.GetAsync(id, ct)).ToHttp(Results.Ok))

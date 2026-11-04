@@ -51,6 +51,7 @@ button.link-button { background: none; color: var(--accent); padding: .2rem 0; f
 .price { font-weight: 700; margin: .5rem 0 0; }
 .price.big { font-size: 1.8rem; }
 .badge { background: var(--err); color: #fff; font-size: .75rem; border-radius: 4px; padding: .1rem .4rem; vertical-align: middle; }
+.pager { display: flex; justify-content: center; align-items: center; gap: 1.5rem; margin-top: 1.5rem; }
 
 .plate { display: inline-block; background: var(--plate); border: 2px solid #1d2330; border-radius: 4px;
   padding: .1rem .5rem; font-weight: 700; letter-spacing: .08em; font-family: ui-monospace, monospace; }

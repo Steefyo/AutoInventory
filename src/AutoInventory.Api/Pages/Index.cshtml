@@ -65,24 +65,32 @@
                 }
             </select>
         </label>
+        <label>Sorteren
+            <select name="sorteer">
+                @foreach (var s in VehicleSort.All)
+                {
+                    <option value="@s" selected="@(Model.Sort == s)">@Format.Sort(s)</option>
+                }
+            </select>
+        </label>
         <div class="filter-actions">
             <button type="submit" class="js-hide">Filteren</button>
             @if (filtered)
             {
-                <a asp-page="/Index">Filters wissen</a>
+                <a asp-page="/Index" asp-route-sorteer="@Model.Sort">Filters wissen</a>
             }
         </div>
     </form>
 
-    @if (Model.Vehicles.Count == 0)
+    @if (Model.Vehicles.TotalCount == 0)
     {
         <p class="status" role="status">Geen voertuigen gevonden@(filtered ? " voor deze filters" : "").</p>
     }
     else
     {
-        <p class="hint" role="status">@Model.Vehicles.Count @(Model.Vehicles.Count == 1 ? "voertuig" : "voertuigen")</p>
+        <p class="hint" role="status">@Model.Vehicles.TotalCount @(Model.Vehicles.TotalCount == 1 ? "voertuig" : "voertuigen")</p>
         <div class="grid">
-            @foreach (var v in Model.Vehicles)
+            @foreach (var v in Model.Vehicles.Items)
             {
                 var sold = v.Status == VehicleStatus.Sold;
                 <a class="card @(sold ? "sold" : "")" asp-page="/Vehicles/Details" asp-route-id="@v.Id">
@@ -96,5 +104,21 @@
                 </a>
             }
         </div>
+
+        @if (Model.Vehicles.TotalPages > 1)
+        {
+            var current = Model.Vehicles.Page;
+            <nav class="pager" aria-label="Pagina's">
+                @if (current > 1)
+                {
+                    <a href="@Url.Page("/Index", Model.RouteFor(current - 1))" rel="prev">← Vorige</a>
+                }
+                <span>Pagina @current van @Model.Vehicles.TotalPages</span>
+                @if (current < Model.Vehicles.TotalPages)
+                {
+                    <a href="@Url.Page("/Index", Model.RouteFor(current + 1))" rel="next">Volgende →</a>
+                }
+            </nav>
+        }
     }
 </main>

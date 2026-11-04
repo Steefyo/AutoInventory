@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
+using AutoInventory.Api.Services;
 using AutoInventory.Core;
 
 namespace AutoInventory.Api.Pages;
@@ -38,6 +39,16 @@ public static partial class Format
         VehicleStatus.Available => "Beschikbaar",
         VehicleStatus.Sold => "Verkocht",
         _ => s.ToString(),
+    };
+
+    public static string Sort(string sort) => sort switch
+    {
+        VehicleSort.Brand => "Merk en model",
+        VehicleSort.Price => "Prijs, laagste eerst",
+        VehicleSort.PriceDesc => "Prijs, hoogste eerst",
+        VehicleSort.Mileage => "Kilometerstand, laagste eerst",
+        VehicleSort.YearDesc => "Bouwjaar, nieuwste eerst",
+        _ => sort,
     };
 
     [GeneratedRegex("[A-Z]+|[0-9]+")]

@@ -41,12 +41,52 @@ public partial class PageTests(ApiFactory factory) : IAsyncLifetime
         ["Input.Version"] = version.ToString(),
     };
 
+    private Task<HttpResponseMessage> AddVehicleAsync(string licensePlate, string price) =>
+        PostFormAsync("/voertuig/toevoegen", "Save", new()
+        {
+            ["Input.LicensePlate"] = licensePlate,
+            ["Input.Mileage"] = "10000",
+            ["Input.Fuel"] = "Petrol",
+            ["Input.Price"] = price,
+            ["Input.Branch"] = "Dordrecht",
+        });
+
     [Fact]
     public async Task Overview_shows_only_the_filtered_cars()
     {
         var html = await _client.GetStringAsync("/?merk=Škoda");
         Assert.Contains("OCTAVIA COMBI", html);
         Assert.DoesNotContain("GOLF", html);
+    }
+
+    [Fact]
+    public async Task Overview_pager_keeps_the_filter_and_the_sort()
+    {
+        await AddVehicleAsync("SK-123-X", price: "14000");
+        await AddVehicleAsync("NB-000-X", price: "13000");
+
+        var first = await _client.GetStringAsync("/?status=Available&sorteer=price_desc");
+        Assert.Contains("Pagina 1 van 2", first);
+        var next = WebUtility.HtmlDecode(NextPagePattern().Match(first).Groups[1].Value);
+        Assert.Equal("/?status=Available&sorteer=price_desc&pagina=2", next);
+
+        var second = await _client.GetStringAsync(next);
+        Assert.Contains("Pagina 2 van 2", second);
+        Assert.Contains("KAMIQ", second);
+        Assert.DoesNotContain("IBIZA", second);
+    }
+
+    [Fact]
+    public async Task Second_page_shows_the_remaining_car()
+    {
+        var first = await _client.GetStringAsync("/?sorteer=price_desc");
+        Assert.Contains("Pagina 1 van 2", first);
+        Assert.DoesNotContain("IBIZA", first);
+
+        var second = await _client.GetStringAsync("/?sorteer=price_desc&pagina=2");
+        Assert.Contains("Pagina 2 van 2", second);
+        Assert.Contains("IBIZA", second);
+        Assert.DoesNotContain("ID.4", second);
     }
 
     [Fact]
@@ -190,4 +230,7 @@ public partial class PageTests(ApiFactory factory) : IAsyncLifetime
 
     [GeneratedRegex("""name="__RequestVerificationToken" type="hidden" value="([^"]+)" """)]
     private static partial Regex TokenPattern();
+
+    [GeneratedRegex("""href="([^"]+)" rel="next""")]
+    private static partial Regex NextPagePattern();
 }
