@@ -1,0 +1,101 @@
+@page "/voertuig/{id:int}"
+@model AutoInventory.Api.Pages.Vehicles.DetailsModel
+@{
+    var v = Model.Vehicle;
+    var sold = v.Status == VehicleStatus.Sold;
+    var freeSlots = Model.Slots.Count(s => s.Free);
+    ViewData["Title"] = $"{v.Brand} {v.Model}";
+}
+
+<main class="two-col">
+    <section>
+        <span class="plate">@Format.Plate(v.LicensePlate)</span>
+        <h1>@v.Brand @v.Model</h1>
+        <dl class="specs">
+            <dt>Bouwjaar</dt><dd>@Format.Year(v.Year)</dd>
+            <dt>Kilometerstand</dt><dd>@Format.Km(v.Mileage)</dd>
+            <dt>Brandstof</dt><dd>@Format.Fuel(v.Fuel)</dd>
+            <dt>Status</dt><dd>@Format.Status(v.Status)</dd>
+            <dt>Vestiging</dt><dd>Ames @v.Branch</dd>
+        </dl>
+        <p class="price big">@Format.Euro(v.Price)</p>
+    </section>
+
+    <section class="panel" aria-labelledby="test-drive-heading">
+        <h2 id="test-drive-heading">Proefrit aanvragen</h2>
+
+        @if (Model.Message is not null)
+        {
+            <p class="status success" role="status">@Model.Message</p>
+        }
+
+        @if (sold)
+        {
+            <p class="status error">Dit voertuig is verkocht; een proefrit aanvragen is niet meer mogelijk.</p>
+        }
+        else
+        {
+            <form method="post" asp-page-handler="Book" novalidate>
+                <div asp-validation-summary="ModelOnly" class="status error" role="alert"></div>
+
+                <label>Naam
+                    <input asp-for="Booking.Name" required maxlength="@Limits.Name" autocomplete="name"
+                           aria-describedby="err-name">
+                </label>
+                <span asp-validation-for="Booking.Name" id="err-name" class="field-error"></span>
+
+                <label>E-mail
+                    <input asp-for="Booking.Email" type="email" required maxlength="@Limits.Email" autocomplete="email"
+                           aria-describedby="err-email">
+                </label>
+                <span asp-validation-for="Booking.Email" id="err-email" class="field-error"></span>
+
+                <label>Telefoon
+                    <input asp-for="Booking.Phone" type="tel" required maxlength="@Limits.Phone" autocomplete="tel"
+                           placeholder="06 12345678" aria-describedby="err-phone">
+                </label>
+                <span asp-validation-for="Booking.Phone" id="err-phone" class="field-error"></span>
+
+                <div class="row">
+                    <label>Datum
+                        <input asp-for="Booking.Date" type="date" min="@Model.FirstDate.ToString("yyyy-MM-dd")"
+                               data-refresh="#show-times" aria-describedby="hours">
+                    </label>
+                    <label>Tijd
+                        <select asp-for="Booking.Slot" disabled="@(freeSlots == 0)" aria-describedby="hours err-slot">
+                            <option value="">@(freeSlots > 0 ? "Kies een tijd" : "Geen tijden beschikbaar op deze dag")</option>
+                            @foreach (var slot in Model.Slots)
+                            {
+                                var value = slot.Start.ToString("o");
+                                <option value="@value" disabled="@(!slot.Free)" selected="@(Model.Booking.Slot == value)">
+                                    @slot.Time@(slot.Free ? "" : " (bezet)")
+                                </option>
+                            }
+                        </select>
+                    </label>
+                </div>
+                <button id="show-times" type="submit" asp-page-handler="ShowTimes" formnovalidate class="link-button">Toon tijden voor deze datum</button>
+                <small id="hours" class="hint">Proefritten: @Model.OpeningHours. Een proefrit duurt een uur en begint op het hele uur.</small>
+                <span asp-validation-for="Booking.Slot" id="err-slot" class="field-error"></span>
+
+                <button type="submit" disabled="@(freeSlots == 0)">Proefrit aanvragen</button>
+            </form>
+        }
+    </section>
+
+    @if (!sold)
+    {
+        <section class="panel admin" aria-labelledby="admin-heading">
+            <h2 id="admin-heading">Beheer</h2>
+            <p class="hint">Voor medewerkers. (Nog zonder inlog; zie README.)</p>
+            @if (Model.AdminError is not null)
+            {
+                <p class="status error" role="alert">@Model.AdminError</p>
+            }
+            <form method="post" asp-page-handler="MarkSold" data-confirm="@v.Brand @v.Model als verkocht markeren?">
+                <input type="hidden" name="version" value="@v.Version">
+                <button type="submit" class="secondary">Markeer als verkocht</button>
+            </form>
+        </section>
+    }
+</main>
