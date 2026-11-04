@@ -57,7 +57,18 @@ public class TestDriveService(AppDbContext db, OpeningHours hours, TimeProvider 
             RequestedAt = clock.GetUtcNow().UtcDateTime,
         };
         db.TestDrives.Add(testDrive);
-        await db.SaveChangesAsync(ct);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex)
+        {
+            if (!await db.TestDrives.AsNoTracking().AnyAsync(t => t.VehicleId == vehicleId && t.ScheduledAt == testDrive.ScheduledAt, ct))
+                throw;
+
+            log.LogWarning(ex, "Concurrent booking for vehicle {VehicleId} at {ScheduledAt:o} refused by the database", vehicleId, testDrive.ScheduledAt);
+            return ServiceResult<TestDriveDto>.Conflict("Dit tijdslot is zojuist door iemand anders geboekt. Kies een ander tijdstip.");
+        }
 
         log.LogInformation("Test drive {TestDriveId} booked for vehicle {VehicleId} at {ScheduledAt:o}", testDrive.Id, vehicleId, testDrive.ScheduledAt);
         return ServiceResult<TestDriveDto>.Ok(

@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -20,6 +21,10 @@ public class ApiFactory : WebApplicationFactory<Program>
     public static readonly DateTimeOffset Now = new(2026, 11, 3, 12, 0, 0, TimeSpan.Zero);
     private readonly SqliteConnection _connection = new("DataSource=:memory:");
 
+    public RaceSimulator Race { get; }
+
+    public ApiFactory() => Race = new RaceSimulator(_connection);
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         _connection.Open();
@@ -28,7 +33,7 @@ public class ApiFactory : WebApplicationFactory<Program>
         {
             services.RemoveAll<DbContextOptions<AppDbContext>>();
             services.RemoveAll<IDbContextOptionsConfiguration<AppDbContext>>();
-            services.AddDbContext<AppDbContext>(o => o.UseSqlite(_connection));
+            services.AddDbContext<AppDbContext>(o => o.UseSqlite(_connection).AddInterceptors(Race));
 
             services.RemoveAll<IRdwClient>();
             services.AddSingleton<IRdwClient, FakeRdw>();
@@ -69,6 +74,31 @@ public class ApiFactory : WebApplicationFactory<Program>
     }
 }
 
+public sealed class RaceSimulator(SqliteConnection connection) : SaveChangesInterceptor
+{
+    private (int VehicleId, DateTime Slot)? _armed;
+
+    public void LetSomeoneElseBookFirst(int vehicleId, DateTime slotUtc) => _armed = (vehicleId, slotUtc);
+
+    public override async ValueTask<InterceptionResult<int>> SavingChangesAsync(
+        DbContextEventData eventData, InterceptionResult<int> result, CancellationToken ct = default)
+    {
+        if (_armed is { } race && eventData.Context!.ChangeTracker.Entries<TestDrive>().Any(e =>
+                e.State == EntityState.Added && e.Entity.VehicleId == race.VehicleId && e.Entity.ScheduledAt == race.Slot))
+        {
+            _armed = null;
+            await using var other = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>().UseSqlite(connection).Options);
+            other.TestDrives.Add(new TestDrive
+            {
+                VehicleId = race.VehicleId, ScheduledAt = race.Slot, RequestedAt = race.Slot,
+                Name = "Snellere bezoeker", Email = "snel@example.nl", Phone = "0612345678",
+            });
+            await other.SaveChangesAsync(ct);
+        }
+        return result;
+    }
+}
+
 [CollectionDefinition(Name)]
 public class AppCollection : ICollectionFixture<ApiFactory>
 {
@@ -93,6 +123,12 @@ public class ApiIntegrationTests(ApiFactory factory) : IAsyncLifetime
 
     private static bool HasFieldError(JsonElement problem, string field) =>
         problem.GetProperty("errors").TryGetProperty(field, out _);
+
+    private async Task<int> BookingsFor(int vehicleId)
+    {
+        using var scope = factory.Services.CreateScope();
+        return await scope.ServiceProvider.GetRequiredService<AppDbContext>().TestDrives.CountAsync(t => t.VehicleId == vehicleId);
+    }
 
     [Fact]
     public async Task Reset_gives_each_test_a_fresh_database()
@@ -190,6 +226,17 @@ public class ApiIntegrationTests(ApiFactory factory) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Lost_race_for_a_slot_returns_409_and_never_double_books()
+    {
+        factory.Race.LetSomeoneElseBookFirst(1, Wednesday11);
+
+        var r = await _client.PostAsJsonAsync("/api/vehicles/1/testdrives", Drive(Wednesday11));
+
+        Assert.Equal(HttpStatusCode.Conflict, r.StatusCode);
+        Assert.Equal(1, await BookingsFor(1));
+    }
+
+    [Fact]
     public async Task Missing_time_is_a_field_error_not_a_binding_failure()
     {
         var r = await _client.PostAsJsonAsync("/api/vehicles/1/testdrives", Drive(null));
@@ -234,4 +281,18 @@ public class ApiIntegrationTests(ApiFactory factory) : IAsyncLifetime
     [Fact]
     public async Task Availability_is_empty_for_a_sold_vehicle() =>
         Assert.Empty((await Json(await _client.GetAsync("/api/vehicles/4/availability?date=2026-11-05"))).EnumerateArray());
+
+    [Fact]
+    public async Task Database_refuses_a_second_booking_in_the_same_slot()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var slot = new DateTime(2026, 11, 6, 9, 0, 0, DateTimeKind.Utc);
+        TestDrive Booking(string name) => new() { VehicleId = 2, Name = name, Email = "x@example.nl", Phone = "0612345678", ScheduledAt = slot, RequestedAt = slot };
+
+        db.TestDrives.Add(Booking("Eerste"));
+        await db.SaveChangesAsync();
+        db.TestDrives.Add(Booking("Tweede"));
+        await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
+    }
 }

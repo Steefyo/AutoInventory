@@ -51,7 +51,8 @@ namespace AutoInventory.Api.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("VehicleId", "ScheduledAt");
+                    b.HasIndex("VehicleId", "ScheduledAt")
+                        .IsUnique();
 
                     b.ToTable("TestDrives");
                 });

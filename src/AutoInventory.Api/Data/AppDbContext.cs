@@ -54,7 +54,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(t => t.Name).HasMaxLength(Limits.Name).IsRequired();
             e.Property(t => t.Email).HasMaxLength(Limits.Email).IsRequired();
             e.Property(t => t.Phone).HasMaxLength(Limits.Phone).IsRequired();
-            e.HasIndex(t => new { t.VehicleId, t.ScheduledAt });
+            e.HasIndex(t => new { t.VehicleId, t.ScheduledAt }).IsUnique();
             e.HasOne(t => t.Vehicle).WithMany(v => v.TestDrives)
                 .HasForeignKey(t => t.VehicleId).OnDelete(DeleteBehavior.Cascade);
         });
