@@ -23,6 +23,6 @@ public class ErrorModel : PageModel
             Text = "Deze pagina of dit voertuig bestaat niet (meer).";
             return;
         }
-        TraceId = Activity.Current?.Id ?? HttpContext.TraceIdentifier;
+        TraceId = Activity.Current?.TraceId.ToString() ?? HttpContext.TraceIdentifier;
     }
 }
