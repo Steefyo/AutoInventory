@@ -3,6 +3,7 @@ using AutoInventory.Api.Data;
 using AutoInventory.Api.Endpoints;
 using AutoInventory.Api.Rdw;
 using AutoInventory.Api.Services;
+using AutoInventory.Core;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
@@ -20,6 +21,12 @@ builder.Services.AddRdw(builder.Configuration);
 builder.Services.AddSingleton(TimeProvider.System);
 
 builder.Services.AddScoped<VehicleService>();
+builder.Services.AddScoped<TestDriveService>();
+
+var hoursSection = builder.Configuration.GetSection("OpeningHours");
+builder.Services.AddSingleton(OpeningHours.Parse(
+    hoursSection["TimeZone"] ?? "Europe/Amsterdam",
+    hoursSection.GetSection("Days").GetChildren().ToDictionary(d => d.Key, d => d.Value ?? "")));
 
 builder.Services.AddOpenApi();
 
@@ -35,6 +42,7 @@ app.MapOpenApi();
 app.MapScalarApiReference(o => o.WithTitle("AutoInventory API"));
 
 app.MapVehicleEndpoints();
+app.MapTestDriveEndpoints();
 
 if (app.Configuration.GetValue("Database:MigrateOnStartup", false))
 {
