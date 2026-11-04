@@ -18,6 +18,8 @@ public static class RdwRegistration
                 o.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(8);
                 o.Retry.MaxRetryAttempts = 2;
                 o.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(30); // must be ≥ 2 × attempt timeout
+                o.CircuitBreaker.MinimumThroughput = 5;
+                o.CircuitBreaker.FailureRatio = 0.5;
                 o.CircuitBreaker.BreakDuration = TimeSpan.FromSeconds(15);
             });
 
@@ -28,6 +30,8 @@ public static class RdwRegistration
                 o.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(5);
                 o.Retry.MaxRetryAttempts = 1;
                 o.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(30);
+                o.CircuitBreaker.MinimumThroughput = 5;
+                o.CircuitBreaker.FailureRatio = 0.5;
                 o.CircuitBreaker.BreakDuration = TimeSpan.FromSeconds(30);
             });
 

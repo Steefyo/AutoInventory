@@ -5,6 +5,7 @@ using AutoInventory.Core;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AutoInventory.Tests;
@@ -84,5 +85,30 @@ public class RdwResilienceTests
 
         Assert.Equal("Škoda", v!.Brand);
         Assert.Equal(2, vehicleCalls);
+    }
+
+    [Fact]
+    public async Task Circuit_breaker_stops_calling_an_rdw_that_keeps_failing()
+    {
+        var vehicleCalls = 0;
+        var handler = new StubHandler((ds, _) =>
+        {
+            if (ds == "fuel") return Ok(FuelJson);
+            Interlocked.Increment(ref vehicleCalls);
+            return new HttpResponseMessage(HttpStatusCode.ServiceUnavailable);
+        });
+
+        var services = new ServiceCollection().AddLogging()
+            .AddRdw(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Rdw:BaseUrl"] = "https://rdw.test/" }).Build());
+        services.AddHttpClient(RdwRegistration.VehiclesClient).ConfigurePrimaryHttpMessageHandler(() => handler);
+        services.AddHttpClient(RdwRegistration.FuelClient).ConfigurePrimaryHttpMessageHandler(() => handler);
+        services.PostConfigure<HttpStandardResilienceOptions>($"{RdwRegistration.VehiclesClient}-standard", o => o.Retry.Delay = TimeSpan.Zero);
+        using var provider = services.BuildServiceProvider();
+        var rdw = provider.GetRequiredService<IRdwClient>();
+
+        for (var i = 0; i < 4; i++)
+            await Assert.ThrowsAsync<RdwUnavailableException>(() => rdw.GetByLicensePlateAsync("HX512B"));
+
+        Assert.InRange(vehicleCalls, 5, 6);
     }
 }
