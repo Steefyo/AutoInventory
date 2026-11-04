@@ -87,6 +87,13 @@ public class TestDriveRulesTests
     public void Missing_time_is_a_field_error() =>
         Assert.Contains("scheduledAt", Validate(new TestDriveRequest("Jan", "jan@example.nl", "0612345678", null), Available()).Keys);
 
+    [Fact]
+    public void Sub_millisecond_offset_from_the_whole_hour_is_rejected()
+    {
+        var almost = Now.AddDays(1).AddTicks(5_000);
+        Assert.Contains("scheduledAt", Validate(Request(almost), Available()).Keys);
+    }
+
     private static Dictionary<string, string[]> Contact(string? name = "Jan", string? email = "jan@example.nl", string? tel = "0612345678") =>
         Validate(new TestDriveRequest(name, email, tel, Now.AddDays(1)), Available());
 

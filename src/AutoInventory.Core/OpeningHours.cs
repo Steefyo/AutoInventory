@@ -20,7 +20,7 @@ public sealed class OpeningHours(TimeZoneInfo timeZone, IReadOnlyDictionary<DayO
     public bool IsSlotStart(DateTime startUtc)
     {
         var local = TimeZoneInfo.ConvertTimeFromUtc(startUtc, TimeZone);
-        return local is { Minute: 0, Second: 0, Millisecond: 0 };
+        return local.Ticks % TimeSpan.TicksPerHour == 0;
     }
 
     public IEnumerable<DateTime> SlotsOn(DateOnly date, TimeSpan length)
