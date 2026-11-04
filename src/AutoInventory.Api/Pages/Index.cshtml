@@ -1,0 +1,100 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Occasions";
+    var filtered = Model.Brand is not null || Model.Branch is not null || Model.Fuel is not null || Model.Status is not null;
+}
+@section HeaderAction {
+    <a class="button" asp-page="/Vehicles/Create">+ Voertuig toevoegen</a>
+}
+
+<main>
+    <h1>Occasions bij Ames</h1>
+    <p class="hint">Volkswagen, Audi, SEAT, Škoda en CUPRA — en ingeruilde auto's van andere merken.</p>
+
+    @if (Model.Message is not null)
+    {
+        <p class="status success" role="status">@Model.Message</p>
+    }
+
+    <form method="get" class="filters" role="search" data-autosubmit>
+        <label>Merk
+            <select name="merk">
+                <option value="">Alle merken</option>
+                <optgroup label="Ames-merken">
+                    @foreach (var b in Model.BrandOptions.DealerBrands)
+                    {
+                        <option value="@b" selected="@(Model.Brand == b)">@b</option>
+                    }
+                </optgroup>
+                @if (Model.BrandOptions.Others.Count > 0)
+                {
+                    <optgroup label="Overige merken (inruil)">
+                        @foreach (var b in Model.BrandOptions.Others)
+                        {
+                            <option value="@b" selected="@(Model.Brand == b)">@b</option>
+                        }
+                    </optgroup>
+                }
+            </select>
+        </label>
+        <label>Vestiging
+            <select name="vestiging">
+                <option value="">Alle vestigingen</option>
+                @foreach (var branch in Branches.All)
+                {
+                    <option value="@branch" selected="@(Model.Branch == branch)">@branch</option>
+                }
+            </select>
+        </label>
+        <label>Brandstof
+            <select name="brandstof">
+                <option value="">Alle</option>
+                @foreach (var f in Enum.GetValues<FuelType>())
+                {
+                    <option value="@f" selected="@(Model.Fuel == f)">@Format.Fuel(f)</option>
+                }
+            </select>
+        </label>
+        <label>Status
+            <select name="status">
+                <option value="">Alle</option>
+                @foreach (var s in Enum.GetValues<VehicleStatus>())
+                {
+                    <option value="@s" selected="@(Model.Status == s)">@Format.Status(s)</option>
+                }
+            </select>
+        </label>
+        <div class="filter-actions">
+            <button type="submit" class="js-hide">Filteren</button>
+            @if (filtered)
+            {
+                <a asp-page="/Index">Filters wissen</a>
+            }
+        </div>
+    </form>
+
+    @if (Model.Vehicles.Count == 0)
+    {
+        <p class="status" role="status">Geen voertuigen gevonden@(filtered ? " voor deze filters" : "").</p>
+    }
+    else
+    {
+        <p class="hint" role="status">@Model.Vehicles.Count @(Model.Vehicles.Count == 1 ? "voertuig" : "voertuigen")</p>
+        <div class="grid">
+            @foreach (var v in Model.Vehicles)
+            {
+                var sold = v.Status == VehicleStatus.Sold;
+                <a class="card @(sold ? "sold" : "")" asp-page="/Vehicles/Details" asp-route-id="@v.Id">
+                    <span class="plate">@Format.Plate(v.LicensePlate)</span>
+                    <h2>@v.Brand @v.Model</h2>
+                    <p class="meta">@(v.Year?.ToString() ?? "–") · @Format.Km(v.Mileage) · @Format.Fuel(v.Fuel)</p>
+                    <p class="meta"><span aria-hidden="true">📍</span> Ames @v.Branch</p>
+                    <p class="price">@Format.Euro(v.Price)
+                        @if (sold) { <span class="badge">Verkocht</span> }
+                    </p>
+                </a>
+            }
+        </div>
+    }
+</main>

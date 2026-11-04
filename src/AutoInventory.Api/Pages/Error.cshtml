@@ -1,0 +1,14 @@
+@page
+@model ErrorModel
+@{
+    ViewData["Title"] = Model.Title;
+}
+<main class="narrow">
+    <h1>@Model.Title</h1>
+    <p>@Model.Text</p>
+    @if (Model.TraceId is not null)
+    {
+        <p class="hint">Foutcode voor de beheerder: <code>@Model.TraceId</code></p>
+    }
+    <p><a asp-page="/Index">Naar het overzicht</a></p>
+</main>

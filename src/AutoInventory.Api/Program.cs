@@ -1,11 +1,16 @@
+using System.Globalization;
+using System.Text.Encodings.Web;
 using System.Text.Json.Serialization;
+using System.Text.Unicode;
 using AutoInventory.Api.Data;
 using AutoInventory.Api.Endpoints;
 using AutoInventory.Api.Rdw;
 using AutoInventory.Api.Services;
 using AutoInventory.Core;
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Localization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.WebEncoders;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -28,19 +33,44 @@ builder.Services.AddSingleton(OpeningHours.Parse(
     hoursSection["TimeZone"] ?? "Europe/Amsterdam",
     hoursSection.GetSection("Days").GetChildren().ToDictionary(d => d.Key, d => d.Value ?? "")));
 
+builder.Services.AddRazorPages();
+builder.Services.Configure<WebEncoderOptions>(o => o.TextEncoderSettings = new TextEncoderSettings(UnicodeRanges.All));
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
-app.UseExceptionHandler(new ExceptionHandlerOptions
+static bool IsApi(HttpContext c) => c.Request.Path.StartsWithSegments("/api");
+app.UseWhen(IsApi, api =>
 {
-    StatusCodeSelector = ex => ex is BadHttpRequestException bad ? bad.StatusCode : StatusCodes.Status500InternalServerError,
+    api.UseExceptionHandler(new ExceptionHandlerOptions
+    {
+        StatusCodeSelector = ex => ex is BadHttpRequestException bad ? bad.StatusCode : StatusCodes.Status500InternalServerError,
+    });
+    api.UseStatusCodePages();
 });
-app.UseStatusCodePages();
+app.UseWhen(c => !IsApi(c), web =>
+{
+    web.UseExceptionHandler("/Error");
+    web.UseStatusCodePagesWithReExecute("/Error", "?code={0}");
+});
+
+app.UseRequestLocalization(new RequestLocalizationOptions
+{
+    DefaultRequestCulture = new RequestCulture(CultureInfo.InvariantCulture),
+    SupportedCultures = [CultureInfo.InvariantCulture],
+    SupportedUICultures = [CultureInfo.InvariantCulture],
+    RequestCultureProviders = [],
+});
+
+app.UseStaticFiles();
+
+// Must come after the error handling, otherwise the /Error re-execution finds no page.
+app.UseRouting();
 
 app.MapOpenApi();
 app.MapScalarApiReference(o => o.WithTitle("AutoInventory API"));
 
+app.MapRazorPages();
 app.MapVehicleEndpoints();
 app.MapTestDriveEndpoints();
 

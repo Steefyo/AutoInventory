@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="nl">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>@ViewData["Title"] · AutoInventory</title>
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true">
+</head>
+<body>
+    <header class="top">
+        <a class="brand" asp-page="/Index">AutoInventory <span class="brand-sub">· Ames occasions</span></a>
+        @if (IsSectionDefined("HeaderAction"))
+        {
+            @await RenderSectionAsync("HeaderAction")
+        }
+        else
+        {
+            <a asp-page="/Index">← Terug naar overzicht</a>
+        }
+    </header>
+
+    @RenderBody()
+
+    <script src="~/js/site.js" asp-append-version="true" defer></script>
+</body>
+</html>
